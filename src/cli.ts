@@ -5,7 +5,7 @@ import c from 'ansis'
 import cac from 'cac'
 import { getLatestVersion } from 'fast-npm-meta'
 import { version } from '../package.json'
-import { buildSummary, getDepField, resolvePackageVersions } from './core.ts'
+import { getDepField, resolvePackageVersions } from './core.ts'
 import { providers } from './providers/index.ts'
 import { parsePackageSpec, type ParsedPackage } from './utils.ts'
 import type { Provider } from './type.ts'
@@ -82,13 +82,13 @@ async function run(
       const existingOptions = [
         ...entries.map((e) => ({
           value: `${e.catalogName}\0${e.version}`,
-          label: `Use: ${e.catalogName || '(default)'} → ${e.version}`,
+          label: `${c.yellow(e.catalogName || '(default)')} → ${c.green(e.version)}`,
         })),
-        { value: '', label: 'Choose another version' },
+        { value: '', label: c.dim('Choose another version') },
       ]
       const selected = guardCancel(
         await p.select({
-          message: `"${depName}" found in existing catalog(s)`,
+          message: `${c.cyan(depName)} found in existing catalog(s)`,
           options: existingOptions,
         }),
       )
@@ -98,20 +98,22 @@ async function run(
     },
     async onFetchVersion(depName) {
       const s = p.spinner()
-      s.start(`Fetching latest version of ${depName}`)
+      s.start(`Resolving ${c.cyan(depName)} from npm...`)
       try {
         const meta = await getLatestVersion(depName)
         if (!meta.version) {
-          s.stop(`Package "${depName}" not found`)
-          p.log.error(`Could not resolve version for "${depName}". Skipping.`)
+          s.stop(`Package ${c.cyan(depName)} not found`)
+          p.log.error(
+            `Could not resolve version for ${c.cyan(depName)}. Skipping.`,
+          )
           return null
         }
-        s.stop(`${depName} → ^${meta.version}`)
+        s.stop(`Resolved ${c.cyan(depName)}@${c.green(`^${meta.version}`)}`)
         return `^${meta.version}`
       } catch (error) {
-        s.stop(`Failed to fetch ${depName}`)
+        s.stop(`Failed to fetch ${c.cyan(depName)}`)
         p.log.error(
-          `Could not fetch "${depName}": ${error instanceof Error ? error.message : error}`,
+          `Could not fetch ${c.cyan(depName)}: ${error instanceof Error ? error.message : error}`,
         )
         return null
       }
@@ -134,11 +136,11 @@ async function run(
       const catalogOptions = [
         ...catalogNames.map((name) => ({
           value: name,
-          label: name || '(default)',
-          hint: `${Object.keys(catalogs[name]).length} deps`,
+          label: c.yellow(name || '(default)'),
+          hint: c.dim(`${Object.keys(catalogs[name]).length} deps`),
         })),
         { value: '__new__', label: '+ Create new catalog' },
-        { value: '__skip__', label: 'Skip (no catalog)' },
+        { value: '__skip__', label: c.dim('Skip (no catalog)') },
       ]
 
       const selected = guardCancel(
@@ -201,11 +203,11 @@ async function run(
       await p.select({
         message: 'Install as',
         options: [
-          { value: 'dependencies', label: 'dependencies' },
-          { value: 'devDependencies', label: 'devDependencies' },
+          { value: 'dependencies', label: c.green('dependencies') },
+          { value: 'devDependencies', label: c.yellow('devDependencies') },
           {
             value: 'peerDependencies',
-            label: 'peerDependencies',
+            label: c.magenta('peerDependencies'),
             hint: provider.supportsPeerDependencies
               ? undefined
               : 'not supported',
@@ -225,16 +227,43 @@ async function run(
     return pkg?.name || d
   })
 
-  const summary = buildSummary({
-    providerName: provider.name,
-    depType,
-    deps: resolved,
-    targetNames,
-  })
+  // --- Build colored summary ---
+  const summaryLines: string[] = []
+  for (const dep of resolved) {
+    if (dep.catalogName == null) {
+      summaryLines.push(
+        `${c.cyan(dep.name)}@${c.green(dep.version)} ${c.gray('(direct)')}`,
+      )
+    } else {
+      const ref =
+        dep.catalogName === '' ? 'catalog:' : `catalog:${dep.catalogName}`
+      const status = dep.existsInCatalog ? 'existing' : 'new'
+      summaryLines.push(
+        `${c.cyan(dep.name)}@${c.green(dep.version)}  ${c.yellow(ref)}  ${c.gray(`(${status})`)}`,
+      )
+    }
+  }
 
-  p.note(summary, 'Summary')
+  const depTypeColor =
+    depType === 'peerDependencies'
+      ? c.magenta
+      : depType === 'devDependencies'
+        ? c.yellow
+        : c.green
 
-  const confirmed = guardCancel(await p.confirm({ message: 'Looks good?' }))
+  const summaryContent = [
+    `${c.dim('Package manager:')} ${c.bold(provider.name)}`,
+    `${c.dim('Install as:')} ${depTypeColor(depType)}`,
+    `${c.dim('Packages:')} ${c.cyan(targetNames.join(', '))}`,
+    '',
+    ...summaryLines,
+  ].join('\n')
+
+  p.note(c.reset(summaryContent), 'Summary')
+
+  const confirmed = guardCancel(
+    await p.confirm({ message: c.green('Looks good?') }),
+  )
   if (!confirmed) {
     p.cancel('Cancelled.')
     process.exit(0)
