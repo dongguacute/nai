@@ -39,7 +39,7 @@
     "lint": "eslint --cache .",
     "lint:fix": "pnpm run lint --fix",
     "build": "tsdown",
-    "dev": "tsdown --watch",
+    "dev": "tsdown --onSuccess 'node dist/cli.mjs'",
     "test": "vitest",
     "typecheck": "tsgo --noEmit",
     "format": "prettier --cache --write .",
