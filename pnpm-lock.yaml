@@ -12,6 +12,9 @@ catalogs:
     cac:
       specifier: ^7.0.0
       version: 7.0.0
+    fast-npm-meta:
+      specifier: ^1.4.2
+      version: 1.4.2
 
 importers:
 
@@ -23,6 +26,9 @@ importers:
       cac:
         specifier: catalog:prod
         version: 7.0.0
+      fast-npm-meta:
+        specifier: catalog:prod
+        version: 1.4.2
     devDependencies:
       '@sxzz/eslint-config':
         specifier: ^7.8.3
@@ -1382,6 +1388,10 @@ packages:
 
   fast-levenshtein@2.0.6:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
+
+  fast-npm-meta@1.4.2:
+    resolution: {integrity: sha512-XXyd9d3ie/JeIIjm6WeKalvapGGFI4ShAjPJM78vgUFYzoEsuNSjvvVTuht0XZcwbVdOnEEGzhxwguRbxkIcDg==}
+    hasBin: true
 
   fault@2.0.1:
     resolution: {integrity: sha512-WtySTkS4OKev5JtpHXnib4Gxiurzh5NCGvWrFaZ34m6JehfTUhKZvn9njTfw48t6JumVQOmrKqpmGcdwxnhqBQ==}
@@ -3391,6 +3401,8 @@ snapshots:
   fast-json-stable-stringify@2.1.0: {}
 
   fast-levenshtein@2.0.6: {}
+
+  fast-npm-meta@1.4.2: {}
 
   fault@2.0.1:
     dependencies:
