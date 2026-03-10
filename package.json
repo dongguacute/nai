@@ -40,6 +40,11 @@
     "release": "bumpp",
     "prepublishOnly": "pnpm run build"
   },
+  "dependencies": {
+    "@clack/prompts": "catalog:prod",
+    "cac": "catalog:prod",
+    "fast-npm-meta": "catalog:prod"
+  },
   "devDependencies": {
     "@sxzz/eslint-config": "^7.8.3",
     "@sxzz/prettier-config": "^2.3.1",
@@ -53,10 +58,5 @@
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },
-  "prettier": "@sxzz/prettier-config",
-  "dependencies": {
-    "@clack/prompts": "catalog:prod",
-    "cac": "catalog:prod",
-    "fast-npm-meta": "catalog:prod"
-  }
+  "prettier": "@sxzz/prettier-config"
 }

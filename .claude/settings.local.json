@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git log:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm test:unit:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(pnpm format:check:*)",
+      "Bash(pnpm test:browser:*)",
+      "Bash(pnpm exec playwright test:*)",
+      "Bash(pnpm format:*)",
+      "Bash(pnpm lint:fix:*)",
+      "Bash(git checkout:*)",
+      "Bash(grep:*)",
+      "Bash(pnpm knip:*)",
+      "Bash(pnpm vitest run:*)",
+      "mcp__linear-server__list_projects",
+      "mcp__linear-server__list_teams",
+      "mcp__linear-server__list_issues",
+      "mcp__linear-server__list_issue_labels",
+      "Bash(pnpm vue-tsc:*)",
+      "Bash(gh pr:*)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(find /Users/rizumu/Code/rizumu-nip/node_modules/fast-npm-meta -iname \"readme*\" -o -iname \"*.md\" 2>/dev/null | grep -v node_modules)",
+      "Bash(npx tsgo:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

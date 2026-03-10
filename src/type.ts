@@ -5,6 +5,8 @@ export type AppContext<Options> = {
 }
 
 export type Provider = {
+  name: string
+
   // does it exist?
   checkExistence: () => Promise<{
     exists: boolean
