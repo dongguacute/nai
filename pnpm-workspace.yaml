@@ -1,6 +1,8 @@
 packages: []
 
 catalogs:
+  dev:
+    tsdown: ^0.21.1
   prod:
     '@clack/prompts': ^1.1.0
     cac: ^7.0.0

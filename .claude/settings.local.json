@@ -24,7 +24,8 @@
       "Bash(git:*)",
       "Bash(ls:*)",
       "Bash(find /Users/rizumu/Code/rizumu-nip/node_modules/fast-npm-meta -iname \"readme*\" -o -iname \"*.md\" 2>/dev/null | grep -v node_modules)",
-      "Bash(npx tsgo:*)"
+      "Bash(npx tsgo:*)",
+      "Bash(pnpm build:*)"
     ],
     "deny": [],
     "ask": []
