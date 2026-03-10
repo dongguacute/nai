@@ -111,23 +111,17 @@ describe('buildSummary', () => {
 describe('resolvePackageVersions', () => {
   const emptyCatalogs: Record<string, Record<string, string>> = {}
 
-  it('uses version from package spec directly', async () => {
+  it('uses version from package spec without catalog assignment', async () => {
     const result = await resolvePackageVersions(
       [{ name: 'react', version: '^18.3.1' }],
       {
         catalogs: emptyCatalogs,
-        targetCatalog: 'prod',
         onExistingFound: vi.fn(),
         onFetchVersion: vi.fn(),
       },
     )
     expect(result).toEqual([
-      {
-        name: 'react',
-        version: '^18.3.1',
-        catalogName: 'prod',
-        existsInCatalog: false,
-      },
+      { name: 'react', version: '^18.3.1', existsInCatalog: false },
     ])
   })
 
@@ -135,7 +129,6 @@ describe('resolvePackageVersions', () => {
     const onFetchVersion = vi.fn()
     const result = await resolvePackageVersions([{ name: 'react' }], {
       catalogs: { prod: { react: '^18.3.1' } },
-      targetCatalog: 'prod',
       onExistingFound: vi.fn().mockResolvedValue({
         catalogName: 'prod',
         version: '^18.3.1',
@@ -156,41 +149,28 @@ describe('resolvePackageVersions', () => {
   it('fetches from npm when user declines existing entry', async () => {
     const result = await resolvePackageVersions([{ name: 'react' }], {
       catalogs: { prod: { react: '^18.0.0' } },
-      targetCatalog: 'prod',
       onExistingFound: vi.fn().mockResolvedValue(null),
       onFetchVersion: vi.fn().mockResolvedValue('^18.3.1'),
     })
     expect(result).toEqual([
-      {
-        name: 'react',
-        version: '^18.3.1',
-        catalogName: 'prod',
-        existsInCatalog: false,
-      },
+      { name: 'react', version: '^18.3.1', existsInCatalog: false },
     ])
   })
 
-  it('fetches from npm when no catalog mode', async () => {
+  it('fetches from npm when not in any catalog', async () => {
     const result = await resolvePackageVersions([{ name: 'lodash' }], {
       catalogs: emptyCatalogs,
-      targetCatalog: null,
       onExistingFound: vi.fn(),
       onFetchVersion: vi.fn().mockResolvedValue('^4.17.21'),
     })
     expect(result).toEqual([
-      {
-        name: 'lodash',
-        version: '^4.17.21',
-        catalogName: undefined,
-        existsInCatalog: false,
-      },
+      { name: 'lodash', version: '^4.17.21', existsInCatalog: false },
     ])
   })
 
   it('skips package when fetch returns null', async () => {
     const result = await resolvePackageVersions([{ name: 'nonexistent-pkg' }], {
       catalogs: emptyCatalogs,
-      targetCatalog: null,
       onExistingFound: vi.fn(),
       onFetchVersion: vi.fn().mockResolvedValue(null),
     })
@@ -206,7 +186,6 @@ describe('resolvePackageVersions', () => {
       ],
       {
         catalogs: { prod: { vue: '^3.5.0' } },
-        targetCatalog: 'prod',
         onExistingFound: vi.fn().mockResolvedValue({
           catalogName: 'prod',
           version: '^3.5.0',
@@ -217,9 +196,11 @@ describe('resolvePackageVersions', () => {
     expect(result).toHaveLength(3)
     expect(result[0].name).toBe('react')
     expect(result[0].version).toBe('^18.3.1')
+    expect(result[0].existsInCatalog).toBe(false)
     expect(result[1].name).toBe('vue')
     expect(result[1].existsInCatalog).toBe(true)
     expect(result[2].name).toBe('lodash')
     expect(result[2].version).toBe('^4.17.21')
+    expect(result[2].existsInCatalog).toBe(false)
   })
 })

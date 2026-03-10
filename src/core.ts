@@ -60,14 +60,14 @@ export function buildSummary(options: {
 
 /**
  * Resolve versions for a list of packages.
- * Prompt/network logic is injected via callbacks, keeping the core pure.
+ * Checks existing catalogs first, then fetches from npm for new packages.
+ * Catalog assignment for new packages happens later in the CLI flow.
  */
 export async function resolvePackageVersions(
   packages: ParsedPackage[],
   options: {
     catalogs: Record<string, Record<string, string>>
-    targetCatalog: string | null
-    /** Called when existing catalog entries are found. Return chosen entry, or null to fetch from npm. */
+    /** Called when existing catalog entries are found. Return chosen entry, or null to fetch latest. */
     onExistingFound: (
       depName: string,
       entries: ExistingEntry[],
@@ -79,41 +79,37 @@ export async function resolvePackageVersions(
   const resolved: ResolvedDep[] = []
 
   for (const pkg of packages) {
-    // 1) Version specified in command
+    // 1) Version specified in command — still needs catalog assignment later
     if (pkg.version) {
       resolved.push({
         name: pkg.name,
         version: pkg.version,
-        catalogName: options.targetCatalog ?? undefined,
         existsInCatalog: false,
       })
       continue
     }
 
-    // 2) Check existing catalog entries (only in catalog mode)
-    if (options.targetCatalog != null) {
-      const existing = findExistingEntries(pkg.name, options.catalogs)
-      if (existing.length > 0) {
-        const chosen = await options.onExistingFound(pkg.name, existing)
-        if (chosen) {
-          resolved.push({
-            name: pkg.name,
-            version: chosen.version,
-            catalogName: chosen.catalogName,
-            existsInCatalog: true,
-          })
-          continue
-        }
+    // 2) Check existing catalog entries across all catalogs
+    const existing = findExistingEntries(pkg.name, options.catalogs)
+    if (existing.length > 0) {
+      const chosen = await options.onExistingFound(pkg.name, existing)
+      if (chosen) {
+        resolved.push({
+          name: pkg.name,
+          version: chosen.version,
+          catalogName: chosen.catalogName,
+          existsInCatalog: true,
+        })
+        continue
       }
     }
 
-    // 3) Fetch latest version
+    // 3) Fetch latest version — still needs catalog assignment later
     const version = await options.onFetchVersion(pkg.name)
     if (version) {
       resolved.push({
         name: pkg.name,
         version,
-        catalogName: options.targetCatalog ?? undefined,
         existsInCatalog: false,
       })
     }

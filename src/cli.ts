@@ -71,58 +71,18 @@ async function run(
     packages = input.trim().split(/\s+/).map(parsePackageSpec)
   }
 
-  // --- Get existing catalogs & select target ---
+  // --- Resolve versions (check existing catalogs first, then fetch) ---
   const { catalogs } = await provider.listCatalogs()
-  const catalogNames = Object.keys(catalogs)
 
-  let targetCatalog: string | null
-  if (options.catalog == null) {
-    const catalogOptions = [
-      ...catalogNames.map((name) => ({
-        value: name,
-        label: name || '(default)',
-        hint: `${Object.keys(catalogs[name]).length} deps`,
-      })),
-      { value: '__new__', label: '+ Create new catalog' },
-      { value: '__skip__', label: 'Skip (no catalog)' },
-    ]
-
-    const selected = guardCancel(
-      await p.select({
-        message: 'Select a catalog',
-        options: catalogOptions,
-      }),
-    )
-
-    if (selected === '__new__') {
-      targetCatalog = guardCancel(
-        await p.text({
-          message: 'New catalog name',
-          validate: (v) => {
-            if (!v?.trim()) return 'Catalog name is required.'
-          },
-        }),
-      )
-    } else if (selected === '__skip__') {
-      targetCatalog = null
-    } else {
-      targetCatalog = selected
-    }
-  } else {
-    targetCatalog = options.catalog
-  }
-
-  // --- Resolve version for each package ---
   const resolved = await resolvePackageVersions(packages, {
     catalogs,
-    targetCatalog,
     async onExistingFound(depName, entries) {
       const existingOptions = [
         ...entries.map((e) => ({
           value: `${e.catalogName}\0${e.version}`,
           label: `Use: ${e.catalogName || '(default)'} → ${e.version}`,
         })),
-        { value: '', label: 'Fetch latest from npm' },
+        { value: '', label: 'Choose another version' },
       ]
       const selected = guardCancel(
         await p.select({
@@ -160,6 +120,55 @@ async function run(
     p.log.error('No packages to install.')
     p.outro('Exiting')
     return
+  }
+
+  // --- Select catalog for new packages (ones not reusing an existing entry) ---
+  const newDeps = resolved.filter((d) => !d.existsInCatalog)
+  if (newDeps.length > 0) {
+    const catalogNames = Object.keys(catalogs)
+    let targetCatalog: string | null
+
+    if (options.catalog == null) {
+      const catalogOptions = [
+        ...catalogNames.map((name) => ({
+          value: name,
+          label: name || '(default)',
+          hint: `${Object.keys(catalogs[name]).length} deps`,
+        })),
+        { value: '__new__', label: '+ Create new catalog' },
+        { value: '__skip__', label: 'Skip (no catalog)' },
+      ]
+
+      const selected = guardCancel(
+        await p.select({
+          message: 'Select a catalog for new packages',
+          options: catalogOptions,
+        }),
+      )
+
+      if (selected === '__new__') {
+        targetCatalog = guardCancel(
+          await p.text({
+            message: 'New catalog name',
+            validate: (v) => {
+              if (!v?.trim()) return 'Catalog name is required.'
+            },
+          }),
+        )
+      } else if (selected === '__skip__') {
+        targetCatalog = null
+      } else {
+        targetCatalog = selected
+      }
+    } else {
+      targetCatalog = options.catalog
+    }
+
+    if (targetCatalog != null) {
+      for (const dep of newDeps) {
+        dep.catalogName = targetCatalog
+      }
+    }
   }
 
   // --- Select workspace packages (if monorepo) ---
