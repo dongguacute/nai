@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import process from 'node:process'
 import * as p from '@clack/prompts'
+import c from 'ansis'
 import cac from 'cac'
 import { getLatestVersion } from 'fast-npm-meta'
+import { version } from '../package.json'
 import { buildSummary, getDepField, resolvePackageVersions } from './core.ts'
 import { providers } from './providers/index.ts'
 import { parsePackageSpec, type ParsedPackage } from './utils.ts'
@@ -29,7 +31,7 @@ async function run(
   names: string[],
   options: { dev?: boolean; peer?: boolean; catalog?: string },
 ) {
-  p.intro('nip')
+  p.intro(`${c.yellow`@rizumu/nai`} ${c.dim`v${version}`}`)
 
   // --- Detect or select package manager ---
   let provider: Provider
@@ -259,7 +261,7 @@ async function run(
 }
 
 // --- CLI Setup ---
-const cli = cac('nip')
+const cli = cac('nai')
 
 cli
   .command('[...names]', 'Install packages with catalog support')
@@ -269,5 +271,5 @@ cli
   .action(run)
 
 cli.help()
-cli.version('0.0.0')
+cli.version(version)
 cli.parse()

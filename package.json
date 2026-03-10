@@ -1,19 +1,19 @@
 {
-  "name": "rizumu-nip",
+  "name": "@rizumu/nai",
   "type": "module",
-  "version": "0.0.0",
+  "version": "26.0.0",
   "packageManager": "pnpm@10.31.0",
-  "description": "My awesome typescript library",
+  "description": "Interactive CLI for installing dependencies with catalog support",
   "author": "Kevin Deng <sxzz@sxzz.moe>",
   "license": "MIT",
   "funding": "https://github.com/sponsors/sxzz",
-  "homepage": "https://github.com/LittleSound/nip#readme",
+  "homepage": "https://github.com/LittleSound/nai#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/LittleSound/nip.git"
+    "url": "git+https://github.com/LittleSound/nai.git"
   },
   "bugs": {
-    "url": "https://github.com/LittleSound/nip/issues"
+    "url": "https://github.com/LittleSound/nai/issues"
   },
   "exports": {
     ".": {
@@ -24,7 +24,7 @@
   },
   "types": "./dist/index.d.mts",
   "bin": {
-    "nip": "./dist/cli.mjs"
+    "nai": "./dist/cli.mjs"
   },
   "files": [
     "dist"
@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "@clack/prompts": "catalog:prod",
+    "ansis": "catalog:prod",
     "cac": "catalog:prod",
     "fast-npm-meta": "catalog:prod",
     "yaml": "catalog:prod"

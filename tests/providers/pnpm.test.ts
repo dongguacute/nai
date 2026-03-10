@@ -7,7 +7,7 @@ import { createPnpmProvider } from '../../src/providers/pnpm.ts'
 let tempDir: string
 
 beforeEach(() => {
-  tempDir = mkdtempSync(join(tmpdir(), 'nip-test-'))
+  tempDir = mkdtempSync(join(tmpdir(), 'nai-test-'))
 })
 
 afterEach(() => {

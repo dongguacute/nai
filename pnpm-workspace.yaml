@@ -8,6 +8,7 @@ catalogs:
     cac: ^7.0.0
     fast-npm-meta: ^1.4.2
     yaml: ^2.7.0
+    ansis: ^4.2.0
 allowBuilds:
   esbuild: false
 

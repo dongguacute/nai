@@ -1,22 +1,17 @@
 {
   "compilerOptions": {
-    "target": "esnext",
-    "lib": ["es2023"],
-    "moduleDetection": "force",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
-    "types": ["node"],
     "allowImportingTsExtensions": true,
     "strict": true,
-    "noUnusedLocals": true,
-    "declaration": true,
+    "strictNullChecks": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "isolatedDeclarations": true,
-    "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "erasableSyntaxOnly": true,
+    "skipDefaultLibCheck": true,
     "skipLibCheck": true
   },
   "include": ["src", "tests"]
