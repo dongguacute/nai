@@ -4,6 +4,9 @@
 
 An interactive CLI that makes installing dependencies easy — with first-class **catalog** support.
 
+<img height="500" alt="Ghostty 2026-03-11 01 32 41" src="https://github.com/user-attachments/assets/83d164f3-8a13-41f1-a453-23ffd81ed387" />
+
+
 ## 📦 Install
 
 ```bash
