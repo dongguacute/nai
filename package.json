@@ -49,7 +49,8 @@
   "dependencies": {
     "@clack/prompts": "catalog:prod",
     "cac": "catalog:prod",
-    "fast-npm-meta": "catalog:prod"
+    "fast-npm-meta": "catalog:prod",
+    "yaml": "catalog:prod"
   },
   "devDependencies": {
     "@sxzz/eslint-config": "^7.8.3",

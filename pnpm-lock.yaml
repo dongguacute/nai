@@ -19,6 +19,9 @@ catalogs:
     fast-npm-meta:
       specifier: ^1.4.2
       version: 1.4.2
+    yaml:
+      specifier: ^2.7.0
+      version: 2.8.2
 
 importers:
 
@@ -33,6 +36,9 @@ importers:
       fast-npm-meta:
         specifier: catalog:prod
         version: 1.4.2
+      yaml:
+        specifier: catalog:prod
+        version: 2.8.2
     devDependencies:
       '@sxzz/eslint-config':
         specifier: ^7.8.3
