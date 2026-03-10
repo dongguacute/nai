@@ -3,9 +3,10 @@ import process from 'node:process'
 import * as p from '@clack/prompts'
 import cac from 'cac'
 import { getLatestVersion } from 'fast-npm-meta'
+import { buildSummary, getDepField, resolvePackageVersions } from './core.ts'
 import { providers } from './providers/index.ts'
 import { parsePackageSpec, type ParsedPackage } from './utils.ts'
-import type { Provider, ResolvedDep } from './type.ts'
+import type { Provider } from './type.ts'
 
 /** Auto-detect the first available provider */
 async function detectProvider(): Promise<Provider | undefined> {
@@ -112,84 +113,48 @@ async function run(
   }
 
   // --- Resolve version for each package ---
-  const resolved: ResolvedDep[] = []
-
-  for (const pkg of packages) {
-    // 1) Version specified in command
-    if (pkg.version) {
-      resolved.push({
-        name: pkg.name,
-        version: pkg.version,
-        catalogName: targetCatalog ?? undefined,
-        existsInCatalog: false,
-      })
-      continue
-    }
-
-    // 2) Check existing catalog entries (only in catalog mode)
-    if (targetCatalog != null) {
-      const existingEntries: { catalogName: string; version: string }[] = []
-      for (const [catName, deps] of Object.entries(catalogs)) {
-        if (pkg.name in deps) {
-          existingEntries.push({
-            catalogName: catName,
-            version: deps[pkg.name],
-          })
-        }
-      }
-
-      if (existingEntries.length > 0) {
-        const existingOptions = [
-          ...existingEntries.map((e) => ({
-            value: `${e.catalogName}\0${e.version}`,
-            label: `Use: ${e.catalogName || '(default)'} → ${e.version}`,
-          })),
-          { value: '', label: 'Fetch latest from npm' },
-        ]
-        const selected = guardCancel(
-          await p.select({
-            message: `"${pkg.name}" found in existing catalog(s)`,
-            options: existingOptions,
-          }),
-        )
-
-        if (selected) {
-          const [catalogName, version] = selected.split('\0')
-          resolved.push({
-            name: pkg.name,
-            version,
-            catalogName,
-            existsInCatalog: true,
-          })
-          continue
-        }
-      }
-    }
-
-    // 3) Fetch latest version from npm
-    const s = p.spinner()
-    s.start(`Fetching latest version of ${pkg.name}`)
-    try {
-      const meta = await getLatestVersion(pkg.name)
-      if (!meta.version) {
-        s.stop(`Package "${pkg.name}" not found`)
-        p.log.error(`Could not resolve version for "${pkg.name}". Skipping.`)
-        continue
-      }
-      s.stop(`${pkg.name} → ^${meta.version}`)
-      resolved.push({
-        name: pkg.name,
-        version: `^${meta.version}`,
-        catalogName: targetCatalog ?? undefined,
-        existsInCatalog: false,
-      })
-    } catch (error) {
-      s.stop(`Failed to fetch ${pkg.name}`)
-      p.log.error(
-        `Could not fetch "${pkg.name}": ${error instanceof Error ? error.message : error}`,
+  const resolved = await resolvePackageVersions(packages, {
+    catalogs,
+    targetCatalog,
+    async onExistingFound(depName, entries) {
+      const existingOptions = [
+        ...entries.map((e) => ({
+          value: `${e.catalogName}\0${e.version}`,
+          label: `Use: ${e.catalogName || '(default)'} → ${e.version}`,
+        })),
+        { value: '', label: 'Fetch latest from npm' },
+      ]
+      const selected = guardCancel(
+        await p.select({
+          message: `"${depName}" found in existing catalog(s)`,
+          options: existingOptions,
+        }),
       )
-    }
-  }
+      if (!selected) return null
+      const [catalogName, version] = selected.split('\0')
+      return { catalogName, version }
+    },
+    async onFetchVersion(depName) {
+      const s = p.spinner()
+      s.start(`Fetching latest version of ${depName}`)
+      try {
+        const meta = await getLatestVersion(depName)
+        if (!meta.version) {
+          s.stop(`Package "${depName}" not found`)
+          p.log.error(`Could not resolve version for "${depName}". Skipping.`)
+          return null
+        }
+        s.stop(`${depName} → ^${meta.version}`)
+        return `^${meta.version}`
+      } catch (error) {
+        s.stop(`Failed to fetch ${depName}`)
+        p.log.error(
+          `Could not fetch "${depName}": ${error instanceof Error ? error.message : error}`,
+        )
+        return null
+      }
+    },
+  })
 
   if (resolved.length === 0) {
     p.log.error('No packages to install.')
@@ -242,37 +207,19 @@ async function run(
     peer = depTypeChoice === 'peerDependencies'
   }
 
-  const depType = peer
-    ? 'peerDependencies'
-    : dev
-      ? 'devDependencies'
-      : 'dependencies'
-
-  const summaryLines: string[] = []
-  for (const dep of resolved) {
-    if (dep.catalogName == null) {
-      summaryLines.push(`  ${dep.name} ${dep.version} (direct)`)
-    } else {
-      const ref =
-        dep.catalogName === '' ? 'catalog:' : `catalog:${dep.catalogName}`
-      const status = dep.existsInCatalog ? 'existing' : 'new'
-      summaryLines.push(`  ${dep.name} ${dep.version} → ${ref} (${status})`)
-    }
-  }
+  const depType = getDepField(dev, peer)
 
   const targetNames = targetDirs.map((d) => {
     const pkg = repoPackages.find((rp) => rp.directory === d)
     return pkg?.name || d
   })
 
-  const summary = [
-    `Package manager: ${provider.name}`,
-    `Install as: ${depType}`,
-    '',
-    ...summaryLines,
-    '',
-    `Packages: ${targetNames.join(', ')}`,
-  ].join('\n')
+  const summary = buildSummary({
+    providerName: provider.name,
+    depType,
+    deps: resolved,
+    targetNames,
+  })
 
   p.note(summary, 'Summary')
 
