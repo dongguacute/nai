@@ -10,9 +10,14 @@ import {
   getDepField,
   resolvePackageVersions,
 } from './core.ts'
+import {
+  checkOutdated,
+  getPackageVersions,
+  searchNpm,
+} from './npm.ts'
 import { providers } from './providers/index.ts'
 import { parsePackageSpec, type ParsedPackage } from './utils.ts'
-import type { Provider } from './type.ts'
+import type { Provider, ResolvedDep } from './type.ts'
 
 /** Auto-detect the first available provider */
 async function detectProvider(): Promise<
@@ -525,6 +530,546 @@ cli
   .alias('rm')
   .option('--clean-catalog', 'Remove unused catalog entries')
   .action(runRemove)
+
+async function runSearch(query: string[]) {
+  p.intro(`${c.yellow`@rizumu/nai`} ${c.dim`v${version}`} ${c.cyan`search`}`)
+
+  const searchQuery = query.length > 0 ? query.join(' ') : guardCancel(
+    await p.text({
+      message: 'Search packages',
+      placeholder: 'e.g. react framework',
+      validate: (v) => {
+        if (!v?.trim()) return 'Please enter a search query.'
+      },
+    }),
+  )
+
+  const s = p.spinner()
+  s.start(`Searching npm for "${c.cyan(searchQuery)}"...`)
+
+  try {
+    const results = await searchNpm(searchQuery, { size: 20 })
+    s.stop(`Found ${c.green(results.length)} packages`)
+
+    if (results.length === 0) {
+      p.log.warn('No packages found.')
+      p.outro('Try a different search term')
+      return
+    }
+
+    const selected = guardCancel(
+      await p.select({
+        message: 'Select a package to install',
+        options: results.map((pkg) => ({
+          value: pkg.name,
+          label: c.cyan(pkg.name) + c.dim(` v${pkg.version}`),
+          hint: pkg.description?.slice(0, 60) || undefined,
+        })),
+      }),
+    )
+
+    // Ask if user wants to install
+    const shouldInstall = guardCancel(
+      await p.confirm({
+        message: `Install ${c.cyan(selected)}?`,
+        initialValue: true,
+      }),
+    )
+
+    if (shouldInstall) {
+      // Run the install flow
+      await run([selected], {})
+    } else {
+      p.outro('Done')
+    }
+  } catch (error) {
+    s.stop('Search failed')
+    p.log.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
+}
+
+cli
+  .command('search [...query]', 'Search npm for packages')
+  .alias('s')
+  .action(runSearch)
+
+async function runUpdate(
+  names: string[],
+  options: { interactive?: boolean; catalog?: string },
+) {
+  p.intro(`${c.yellow`@rizumu/nai`} ${c.dim`v${version}`} ${c.green`update`}`)
+
+  // --- Detect package manager ---
+  const detected = await detectProvider()
+  if (!detected) {
+    p.log.error('No package manager detected.')
+    p.outro('Exiting')
+    process.exit(1)
+  }
+  const { provider, version: pmVersion } = detected
+  const versionStr = pmVersion ? ` ${c.dim(`v${pmVersion}`)}` : ''
+  p.log.info(`Detected: ${c.bold(provider.name)}${versionStr}`)
+
+  // --- Check catalog support ---
+  const catalogCheck = checkCatalogSupport(provider, pmVersion)
+  const catalogsEnabled = catalogCheck.supported
+
+  // --- Get all packages and their dependencies ---
+  const { packages: repoPackages } = await provider.listPackages()
+  const { catalogs } = catalogsEnabled
+    ? await provider.listCatalogs()
+    : { catalogs: {} }
+
+  // Build a map of all deps with their locations
+  interface DepInfo {
+    name: string
+    version: string
+    packages: { name: string; directory: string; type: string }[]
+    catalogName?: string
+  }
+  const allDeps = new Map<string, DepInfo>()
+
+  for (const pkg of repoPackages) {
+    for (const depField of [
+      'dependencies',
+      'devDependencies',
+      'peerDependencies',
+    ] as const) {
+      const deps = pkg[depField]
+      if (!deps) continue
+      for (const [depName, depVersion] of Object.entries(deps)) {
+        const existing = allDeps.get(depName)
+        if (existing) {
+          existing.packages.push({
+            name: pkg.name,
+            directory: pkg.directory,
+            type: depField,
+          })
+        } else {
+          allDeps.set(depName, {
+            name: depName,
+            version: depVersion,
+            packages: [
+              { name: pkg.name, directory: pkg.directory, type: depField },
+            ],
+          })
+        }
+      }
+    }
+  }
+
+  // Resolve catalog references
+  for (const [depName, info] of allDeps) {
+    if (info.version.startsWith('catalog:')) {
+      const catalogRef = info.version.slice('catalog:'.length) || ''
+      const catalog = catalogs[catalogRef]
+      if (catalog && catalog[depName]) {
+        info.version = catalog[depName]
+        info.catalogName = catalogRef
+      }
+    }
+  }
+
+  if (allDeps.size === 0) {
+    p.log.warn('No dependencies found.')
+    p.outro('Nothing to update')
+    return
+  }
+
+  // --- Check for outdated packages ---
+  let outdatedDeps: DepInfo[] = []
+
+  if (names.length > 0) {
+    // Check specific packages
+    for (const name of names) {
+      const dep = allDeps.get(name)
+      if (dep) {
+        outdatedDeps.push(dep)
+      } else {
+        p.log.warn(`Package ${c.cyan(name)} not found in dependencies`)
+      }
+    }
+  } else {
+    // Check all packages for updates
+    const s = p.spinner()
+    s.start('Checking for outdated packages...')
+
+    const depsToCheck: Record<string, string> = {}
+    for (const [name, info] of allDeps) {
+      if (!info.version.startsWith('workspace:')) {
+        depsToCheck[name] = info.version
+      }
+    }
+
+    const outdated = await checkOutdated(depsToCheck, {
+      logger: (msg) => s.message(msg),
+    })
+    s.stop(`Found ${c.green(outdated.length)} outdated packages`)
+
+    outdatedDeps = outdated
+      .map((o) => allDeps.get(o.name)!)
+      .filter(Boolean)
+      .map((dep) => {
+        const outdatedInfo = outdated.find((o) => o.name === dep.name)
+        if (outdatedInfo) {
+          return { ...dep, latestVersion: outdatedInfo.latest }
+        }
+        return dep
+      })
+  }
+
+  if (outdatedDeps.length === 0) {
+    p.log.success('All packages are up to date!')
+    p.outro('Done')
+    return
+  }
+
+  // --- Select packages to update ---
+  let toUpdate: (DepInfo & { latestVersion?: string })[]
+
+  if (options.interactive || names.length === 0) {
+    toUpdate = guardCancel(
+      await p.multiselect({
+        message: 'Select packages to update',
+        options: outdatedDeps.map((dep) => ({
+          value: dep.name,
+          label: dep.latestVersion
+            ? `${c.cyan(dep.name)} ${c.gray(dep.version)} → ${c.green(dep.latestVersion)}`
+            : c.cyan(dep.name),
+          hint: dep.catalogName
+            ? c.yellow(`catalog:${dep.catalogName}`)
+            : undefined,
+        })),
+      }),
+    ).map((name) => {
+      const dep = outdatedDeps.find((d) => d.name === name)!
+      return dep
+    })
+  } else {
+    toUpdate = outdatedDeps
+  }
+
+  if (toUpdate.length === 0) {
+    p.log.warn('No packages selected for update.')
+    p.outro('Done')
+    return
+  }
+
+  // --- Resolve new versions ---
+  const resolved: ResolvedDep[] = []
+  for (const dep of toUpdate) {
+    const s2 = p.spinner()
+    s2.start(`Resolving ${c.cyan(dep.name)}...`)
+
+    try {
+      const meta = await getLatestVersion(dep.name)
+      if (meta.version) {
+        s2.stop(`Resolved ${c.cyan(dep.name)}@${c.green(`^${meta.version}`)}`)
+        resolved.push({
+          name: dep.name,
+          version: `^${meta.version}`,
+          catalogName: dep.catalogName,
+          existsInCatalog: !!dep.catalogName,
+        })
+      }
+    } catch {
+      s2.stop(`Failed to resolve ${c.cyan(dep.name)}`)
+    }
+  }
+
+  if (resolved.length === 0) {
+    p.log.error('Could not resolve any packages.')
+    p.outro('Exiting')
+    return
+  }
+
+  // --- Build summary ---
+  const summaryLines = resolved.map((dep) => {
+    const oldDep = toUpdate.find((d) => d.name === dep.name)
+    const oldVersion = oldDep?.version || 'unknown'
+    if (dep.catalogName != null) {
+      const ref =
+        dep.catalogName === '' ? 'catalog:' : `catalog:${dep.catalogName}`
+      return `${c.cyan(dep.name)} ${c.gray(oldVersion)} → ${c.green(dep.version)} ${c.yellow(ref)}`
+    }
+    return `${c.cyan(dep.name)} ${c.gray(oldVersion)} → ${c.green(dep.version)} ${c.gray('(direct)')}`
+  })
+
+  const summaryContent = [
+    `${c.dim('Package manager:')} ${c.bold(provider.name)}`,
+    '',
+    ...summaryLines,
+  ].join('\n')
+
+  p.note(c.reset(summaryContent), 'Summary')
+
+  const confirmed = guardCancel(
+    await p.confirm({ message: c.green('Update selected packages?') }),
+  )
+  if (!confirmed) {
+    p.cancel('Cancelled.')
+    process.exit(0)
+  }
+
+  // --- Execute update ---
+  // Group packages by target directory
+  const targetDirs = [...new Set(toUpdate.flatMap((d) => d.packages.map((p) => p.directory)))]
+
+  try {
+    // Update catalog entries if needed
+    if (catalogsEnabled) {
+      const catalogUpdates = resolved.filter(
+        (d) => d.catalogName != null && d.existsInCatalog,
+      )
+      if (catalogUpdates.length > 0) {
+        // Provider will handle catalog updates through depInstallExecutor
+      }
+    }
+
+    // Update package.json files
+    await provider.depInstallExecutor({
+      deps: resolved,
+      targetPackages: targetDirs,
+      dev: false,
+      peer: false,
+      logger: (msg) => p.log.step(msg),
+    })
+    p.outro(c.green('Done!'))
+  } catch (error) {
+    p.log.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
+}
+
+cli
+  .command('update [...names]', 'Update packages to latest versions')
+  .alias('up')
+  .option('-i, --interactive', 'Interactive mode (select packages to update)')
+  .option('-C, --catalog <name>', 'Update packages in a specific catalog')
+  .action(runUpdate)
+
+async function runCatalog(options: { list?: boolean }) {
+  p.intro(`${c.yellow`@rizumu/nai`} ${c.dim`v${version}`} ${c.yellow`catalog`}`)
+
+  // --- Detect package manager ---
+  const detected = await detectProvider()
+  if (!detected) {
+    p.log.error('No package manager detected.')
+    p.outro('Exiting')
+    process.exit(1)
+  }
+  const { provider, version: pmVersion } = detected
+  const versionStr = pmVersion ? ` ${c.dim(`v${pmVersion}`)}` : ''
+  p.log.info(`Detected: ${c.bold(provider.name)}${versionStr}`)
+
+  // --- Check catalog support ---
+  const catalogCheck = checkCatalogSupport(provider, pmVersion)
+  if (!catalogCheck.supported) {
+    if (catalogCheck.reason === 'unsupported') {
+      p.log.error(`${c.bold(provider.name)} does not support catalogs.`)
+    } else {
+      p.log.error(
+        `${c.bold(provider.name)} ${c.dim(`v${pmVersion}`)} does not support catalogs (requires ${c.green(`>= ${catalogCheck.minVersion}`)}).`,
+      )
+    }
+    p.outro('Exiting')
+    process.exit(1)
+  }
+
+  // --- List catalogs ---
+  const { catalogs } = await provider.listCatalogs()
+  const catalogNames = Object.keys(catalogs)
+
+  if (catalogNames.length === 0) {
+    p.log.warn('No catalogs defined.')
+    p.outro('Done')
+    return
+  }
+
+  if (options.list) {
+    // Just list all catalogs
+    for (const name of catalogNames) {
+      const deps = catalogs[name]
+      const displayName = name || '(default)'
+      p.log.info(`${c.yellow(displayName)}: ${c.dim(`${Object.keys(deps).length} deps`)}`)
+    }
+    p.outro('Done')
+    return
+  }
+
+  // --- Interactive catalog browser ---
+  const selectedCatalog = guardCancel(
+    await p.select({
+      message: 'Select a catalog',
+      options: catalogNames.map((name) => ({
+        value: name,
+        label: c.yellow(name || '(default)'),
+        hint: c.dim(`${Object.keys(catalogs[name]).length} deps`),
+      })),
+    }),
+  )
+
+  const catalogDeps = catalogs[selectedCatalog]
+  const depEntries = Object.entries(catalogDeps).sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  )
+
+  if (depEntries.length === 0) {
+    p.log.warn('This catalog is empty.')
+    p.outro('Done')
+    return
+  }
+
+  // Show packages in catalog with version selection option
+  const action = guardCancel(
+    await p.select({
+      message: `Catalog ${c.yellow(selectedCatalog || '(default)')} - ${depEntries.length} packages`,
+      options: [
+        { value: 'view', label: c.cyan('View all packages') },
+        { value: 'select', label: c.green('Select packages to change version') },
+        { value: 'back', label: c.dim('Back') },
+      ],
+    }),
+  )
+
+  if (action === 'back') {
+    p.outro('Done')
+    return
+  }
+
+  if (action === 'view') {
+    const content = depEntries
+      .map(([name, version]) => `${c.cyan(name)}: ${c.green(version)}`)
+      .join('\n')
+    p.note(c.reset(content), `Packages in ${selectedCatalog || '(default)'}`)
+    p.outro('Done')
+    return
+  }
+
+  // Select packages to change version
+  const toChange = guardCancel(
+    await p.multiselect({
+      message: 'Select packages to change version',
+      options: depEntries.map(([name, version]) => ({
+        value: name,
+        label: `${c.cyan(name)} ${c.dim(`(${version})`)}`,
+      })),
+    }),
+  )
+
+  if (toChange.length === 0) {
+    p.log.warn('No packages selected.')
+    p.outro('Done')
+    return
+  }
+
+  // For each selected package, get available versions and let user choose
+  const updated: { name: string; version: string }[] = []
+
+  for (const depName of toChange) {
+    const s = p.spinner()
+    s.start(`Fetching versions for ${c.cyan(depName)}...`)
+
+    try {
+      const versions = await getPackageVersions(depName)
+      s.stop(`Found ${c.green(versions.length)} versions`)
+
+      // Show recent versions (last 20)
+      const recentVersions = versions.slice(0, 20)
+
+      const newVersion = guardCancel(
+        await p.select({
+          message: `Select version for ${c.cyan(depName)}`,
+          options: recentVersions.map((v) => ({
+            value: v,
+            label: c.green(v),
+          })),
+        }),
+      )
+
+      updated.push({ name: depName, version: `^${newVersion}` })
+    } catch {
+      s.stop(`Failed to fetch versions for ${c.cyan(depName)}`)
+    }
+  }
+
+  if (updated.length === 0) {
+    p.log.warn('No versions selected.')
+    p.outro('Done')
+    return
+  }
+
+  // Show summary
+  const summaryLines = updated.map(
+    ({ name, version }) => {
+      const oldVersion = catalogDeps[name]
+      return `${c.cyan(name)} ${c.gray(oldVersion)} → ${c.green(version)}`
+    },
+  )
+
+  p.note(c.reset(summaryLines.join('\n')), 'Summary')
+
+  const confirmed = guardCancel(
+    await p.confirm({ message: c.green('Update catalog?') }),
+  )
+  if (!confirmed) {
+    p.cancel('Cancelled.')
+    process.exit(0)
+  }
+
+  // Build ResolvedDep array for the executor
+  const resolved: ResolvedDep[] = updated.map((u) => ({
+    name: u.name,
+    version: u.version,
+    catalogName: selectedCatalog,
+    existsInCatalog: true,
+  }))
+
+  // Execute update - we need to update catalog entries only
+  const { packages: repoPackages } = await provider.listPackages()
+
+  // Find all packages that use these catalog references
+  const affectedPackages: string[] = []
+  for (const pkg of repoPackages) {
+    for (const depField of [
+      'dependencies',
+      'devDependencies',
+      'peerDependencies',
+    ] as const) {
+      const deps = pkg[depField]
+      if (!deps) continue
+      for (const depName of Object.keys(deps)) {
+        if (
+          toChange.includes(depName) &&
+          deps[depName].startsWith('catalog:')
+        ) {
+          affectedPackages.push(pkg.directory)
+          break
+        }
+      }
+    }
+  }
+
+  try {
+    await provider.depInstallExecutor({
+      deps: resolved,
+      targetPackages: [...new Set(affectedPackages)],
+      dev: false,
+      peer: false,
+      logger: (msg) => p.log.step(msg),
+    })
+    p.outro(c.green('Done!'))
+  } catch (error) {
+    p.log.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
+}
+
+cli
+  .command('catalog', 'Manage catalogs')
+  .option('-l, --list', 'List all catalogs')
+  .action(runCatalog)
 
 cli.help()
 cli.version(version)
