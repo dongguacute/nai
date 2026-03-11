@@ -85,7 +85,7 @@ catalogs:
 |---|---|
 | pnpm | ✅ Supported |
 | yarn | ✅ Supported |
-| bun | 🚧 Planned |
+| bun | ✅ Supported |
 | vlt | 🚧 Planned |
 | npm | 🚧 Planned |
 
