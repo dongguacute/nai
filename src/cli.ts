@@ -84,7 +84,7 @@ async function run(
           value: `${e.catalogName}\0${e.version}`,
           label: `${c.yellow(e.catalogName || '(default)')} → ${c.green(e.version)}`,
         })),
-        { value: '', label: c.dim('Choose another version') },
+        { value: '', label: c.dim('Choose another catalog') },
       ]
       const selected = guardCancel(
         await p.select({
