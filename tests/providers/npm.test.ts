@@ -125,6 +125,7 @@ describe('npm provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // npm install may fail in test env
@@ -146,6 +147,7 @@ describe('npm provider', () => {
           targetPackages: [tempDir],
           dev: true,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // npm install may fail in test env
@@ -167,6 +169,7 @@ describe('npm provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: true,
+          peerOptional: false,
         })
       } catch {
         // npm install may fail in test env
@@ -176,6 +179,86 @@ describe('npm provider', () => {
         readFileSync(join(tempDir, 'package.json'), 'utf8'),
       )
       expect(pkg.peerDependencies.react).toBe('^19.0.0')
+      expect(pkg.peerDependenciesMeta).toBeUndefined()
+    })
+
+    it('writes peerDependenciesMeta when peerOptional is true', async () => {
+      writePkg(tempDir)
+      const provider = createNpmProvider(tempDir)
+
+      try {
+        await provider.depInstallExecutor({
+          deps: [
+            { name: 'react', version: '^19.0.0' },
+            { name: 'sass', version: '^1.3.0' },
+          ],
+          targetPackages: [tempDir],
+          dev: false,
+          peer: true,
+          peerOptional: true,
+        })
+      } catch {
+        // npm install may fail in test env
+      }
+
+      const pkg = JSON.parse(
+        readFileSync(join(tempDir, 'package.json'), 'utf8'),
+      )
+      expect(pkg.peerDependencies.react).toBe('^19.0.0')
+      expect(pkg.peerDependencies.sass).toBe('^1.3.0')
+      expect(pkg.peerDependenciesMeta).toEqual({
+        react: { optional: true },
+        sass: { optional: true },
+      })
+    })
+
+    it('sorts peerDependenciesMeta alphabetically', async () => {
+      writePkg(tempDir)
+      const provider = createNpmProvider(tempDir)
+
+      try {
+        await provider.depInstallExecutor({
+          deps: [
+            { name: 'zod', version: '^3.0.0' },
+            { name: 'axios', version: '^1.0.0' },
+          ],
+          targetPackages: [tempDir],
+          dev: false,
+          peer: true,
+          peerOptional: true,
+        })
+      } catch {
+        // npm install may fail in test env
+      }
+
+      const pkg = JSON.parse(
+        readFileSync(join(tempDir, 'package.json'), 'utf8'),
+      )
+      const metaKeys = Object.keys(pkg.peerDependenciesMeta)
+      expect(metaKeys).toEqual(['axios', 'zod'])
+    })
+
+    it('does not write peerDependenciesMeta when not peer', async () => {
+      writePkg(tempDir)
+      const provider = createNpmProvider(tempDir)
+
+      try {
+        await provider.depInstallExecutor({
+          deps: [{ name: 'lodash', version: '^4.17.21' }],
+          targetPackages: [tempDir],
+          dev: false,
+          peer: false,
+          peerOptional: true,
+        })
+      } catch {
+        // npm install may fail in test env
+      }
+
+      const pkg = JSON.parse(
+        readFileSync(join(tempDir, 'package.json'), 'utf8'),
+      )
+      expect(pkg.dependencies.lodash).toBe('^4.17.21')
+      expect(pkg.peerDependenciesMeta).toBeUndefined()
     })
 
     it('sorts dependencies alphabetically', async () => {
@@ -191,6 +274,7 @@ describe('npm provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // npm install may fail in test env
@@ -221,6 +305,7 @@ describe('npm provider', () => {
           targetPackages: [tempDir, pkgA],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // npm install may fail in test env

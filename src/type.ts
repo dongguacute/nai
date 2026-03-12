@@ -38,6 +38,8 @@ export type DepInstallOptions = {
   targetPackages: string[]
   dev: boolean
   peer: boolean
+  /** Whether to mark peer dependencies as optional in peerDependenciesMeta */
+  peerOptional: boolean
   /** Log progress messages during execution */
   logger?: (message: string) => void
 }

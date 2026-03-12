@@ -170,6 +170,7 @@ describe('yarn provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // yarn install may fail in test env
@@ -197,6 +198,7 @@ describe('yarn provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // yarn install may fail
@@ -218,6 +220,7 @@ describe('yarn provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // yarn install may fail
@@ -239,6 +242,7 @@ describe('yarn provider', () => {
           targetPackages: [tempDir],
           dev: true,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // yarn install may fail
@@ -272,6 +276,7 @@ describe('yarn provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // yarn install may fail
@@ -301,6 +306,7 @@ describe('yarn provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // yarn install may fail

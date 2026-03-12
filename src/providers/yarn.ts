@@ -8,6 +8,7 @@ import {
   readPackageItem,
   resolveWorkspacePackages,
   sortObject,
+  writePeerDependenciesMeta,
 } from './shared.ts'
 import type { DepInstallOptions, Provider } from '../type.ts'
 
@@ -124,6 +125,7 @@ export function createYarnProvider(cwd = process.cwd()): Provider {
         }
 
         pkg[depField] = sortObject(pkg[depField])
+        writePeerDependenciesMeta(pkg, options)
 
         writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8')
         log(`Writing ${pkgPath}`)

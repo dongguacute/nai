@@ -146,6 +146,7 @@ describe('pnpm provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // pnpm install may fail in test env, that's ok
@@ -175,6 +176,7 @@ describe('pnpm provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // pnpm install may fail
@@ -198,6 +200,7 @@ describe('pnpm provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // pnpm install may fail
@@ -221,6 +224,7 @@ describe('pnpm provider', () => {
           targetPackages: [tempDir],
           dev: true,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // pnpm install may fail
@@ -255,6 +259,7 @@ describe('pnpm provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // pnpm install may fail

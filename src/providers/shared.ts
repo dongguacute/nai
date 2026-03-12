@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import type { RepoPackageItem } from '../type.ts'
+import type { DepInstallOptions, RepoPackageItem } from '../type.ts'
 
 /** Extract package metadata from a parsed package.json */
 export function readPackageItem(
@@ -20,6 +20,31 @@ export function readPackageItem(
 export function sortObject(
   obj: Record<string, string>,
 ): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(obj).toSorted(([a], [b]) => a.localeCompare(b)),
+  )
+}
+
+/** Write peerDependenciesMeta entries to a parsed package.json object */
+export function writePeerDependenciesMeta(
+  pkg: Record<string, unknown>,
+  options: DepInstallOptions,
+): void {
+  if (!options.peer || !options.peerOptional) return
+
+  if (!pkg.peerDependenciesMeta) pkg.peerDependenciesMeta = {}
+  const meta = pkg.peerDependenciesMeta as Record<
+    string,
+    Record<string, boolean>
+  >
+  for (const dep of options.deps) {
+    meta[dep.name] = { optional: true }
+  }
+  pkg.peerDependenciesMeta = sortObjectKeys(meta)
+}
+
+/** Sort object keys alphabetically (generic, preserves values) */
+export function sortObjectKeys<T>(obj: Record<string, T>): Record<string, T> {
   return Object.fromEntries(
     Object.entries(obj).toSorted(([a], [b]) => a.localeCompare(b)),
   )

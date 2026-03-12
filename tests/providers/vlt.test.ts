@@ -213,6 +213,7 @@ describe('vlt provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // vlt install may fail in test env
@@ -241,6 +242,7 @@ describe('vlt provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // vlt install may fail in test env
@@ -268,6 +270,7 @@ describe('vlt provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // vlt install may fail in test env
@@ -289,6 +292,7 @@ describe('vlt provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // vlt install may fail in test env
@@ -312,6 +316,7 @@ describe('vlt provider', () => {
           targetPackages: [tempDir],
           dev: true,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // vlt install may fail in test env
@@ -344,6 +349,7 @@ describe('vlt provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // vlt install may fail in test env
@@ -373,6 +379,7 @@ describe('vlt provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // vlt install may fail in test env
@@ -383,6 +390,35 @@ describe('vlt provider', () => {
       )
       const keys = Object.keys(pkg.dependencies)
       expect(keys).toEqual(['axios', 'zod'])
+    })
+
+    it('writes peerDependenciesMeta when peerOptional is true', async () => {
+      writePkg(tempDir)
+      const provider = createVltProvider(tempDir)
+
+      try {
+        await provider.depInstallExecutor({
+          deps: [
+            { name: 'react', version: '^19.0.0' },
+            { name: 'sass', version: '^1.3.0' },
+          ],
+          targetPackages: [tempDir],
+          dev: false,
+          peer: true,
+          peerOptional: true,
+        })
+      } catch {
+        // vlt install may fail in test env
+      }
+
+      const pkg = JSON.parse(
+        readFileSync(join(tempDir, 'package.json'), 'utf8'),
+      )
+      expect(pkg.peerDependencies.react).toBe('^19.0.0')
+      expect(pkg.peerDependenciesMeta).toEqual({
+        react: { optional: true },
+        sass: { optional: true },
+      })
     })
 
     it('sorts catalog entries alphabetically', async () => {
@@ -400,6 +436,7 @@ describe('vlt provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // vlt install may fail in test env
