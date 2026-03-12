@@ -4,9 +4,9 @@
   "version": "26.5.0",
   "packageManager": "pnpm@10.31.0",
   "description": "Interactive CLI for installing dependencies with catalog support",
-  "author": "Kevin Deng <sxzz@sxzz.moe>",
+  "author": "Rizumu <rizumu@ayaka.moe>",
   "license": "MIT",
-  "funding": "https://github.com/sponsors/sxzz",
+  "funding": "https://github.com/sponsors/LittleSound",
   "homepage": "https://github.com/LittleSound/nai#readme",
   "repository": {
     "type": "git",
