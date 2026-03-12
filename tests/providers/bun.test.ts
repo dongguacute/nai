@@ -191,6 +191,7 @@ describe('bun provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // bun install may fail in test env
@@ -221,6 +222,7 @@ describe('bun provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // bun install may fail
@@ -247,6 +249,7 @@ describe('bun provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // bun install may fail
@@ -269,6 +272,7 @@ describe('bun provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // bun install may fail
@@ -290,6 +294,7 @@ describe('bun provider', () => {
           targetPackages: [tempDir],
           dev: true,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // bun install may fail
@@ -311,6 +316,7 @@ describe('bun provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // bun install may fail
@@ -348,6 +354,7 @@ describe('bun provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // bun install may fail
@@ -375,6 +382,7 @@ describe('bun provider', () => {
           targetPackages: [tempDir],
           dev: false,
           peer: false,
+          peerOptional: false,
         })
       } catch {
         // bun install may fail

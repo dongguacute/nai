@@ -40,7 +40,12 @@ function guardCancel<T>(value: T | symbol): T {
 
 async function run(
   names: string[],
-  options: { dev?: boolean; peer?: boolean; catalog?: string },
+  options: {
+    dev?: boolean
+    peer?: boolean
+    peerOptional?: boolean
+    catalog?: string
+  },
 ) {
   p.intro(`${c.yellow`@rizumu/nai`} ${c.dim`v${version}`}`)
 
@@ -230,6 +235,7 @@ async function run(
   // --- Dependency type ---
   let dev = options.dev ?? false
   let peer = options.peer ?? false
+  let peerOptional = options.peerOptional ?? false
 
   if (!dev && !peer) {
     const depTypeChoice = guardCancel(
@@ -251,6 +257,15 @@ async function run(
     )
     dev = depTypeChoice === 'devDependencies'
     peer = depTypeChoice === 'peerDependencies'
+  }
+
+  if (peer && !peerOptional) {
+    peerOptional = guardCancel(
+      await p.confirm({
+        message: 'Mark as optional in peerDependenciesMeta?',
+        initialValue: false,
+      }),
+    )
   }
 
   const depType = getDepField(dev, peer)
@@ -286,7 +301,7 @@ async function run(
 
   const summaryContent = [
     `${c.dim('Package manager:')} ${c.bold(provider.name)}`,
-    `${c.dim('Install as:')} ${depTypeColor(depType)}`,
+    `${c.dim('Install as:')} ${depTypeColor(depType)}${peerOptional ? c.dim(' (optional)') : ''}`,
     `${c.dim('Packages:')} ${c.cyan(targetNames.join(', '))}`,
     '',
     ...summaryLines,
@@ -309,6 +324,7 @@ async function run(
       targetPackages: targetDirs,
       dev,
       peer,
+      peerOptional,
       logger: (msg) => p.log.step(msg),
     })
   } catch (error) {
@@ -324,6 +340,7 @@ cli
   .command('[...names]', 'Install packages with catalog support')
   .option('-D, --dev', 'Install as dev dependency')
   .option('--peer', 'Install as peer dependency')
+  .option('--peer-optional', 'Mark peer dependencies as optional')
   .option('-C, --catalog <name>', 'Specify catalog name')
   .action(run)
 
