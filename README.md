@@ -127,13 +127,13 @@ catalogs:
 
 ## 🛠️ Supported Package Managers
 
-| Package Manager | Catalog Support | Status |
-|---|---|---|
-| pnpm | ✅ `pnpm-workspace.yaml` | ✅ Supported |
-| yarn | ✅ `.yarnrc.yml` | ✅ Supported |
-| bun | ✅ `package.json` | ✅ Supported |
-| vlt | ✅ `vlt.json` | ✅ Supported |
-| npm | ❌ | ✅ Supported (no catalog) |
+| Package Manager | Catalog Support          | Status                    |
+| --------------- | ------------------------ | ------------------------- |
+| pnpm            | ✅ `pnpm-workspace.yaml` | ✅ Supported              |
+| yarn            | ✅ `.yarnrc.yml`         | ✅ Supported              |
+| bun             | ✅ `package.json`        | ✅ Supported              |
+| vlt             | ✅ `vlt.json`            | ✅ Supported              |
+| npm             | ❌                       | ✅ Supported (no catalog) |
 
 ## 📄 License
 

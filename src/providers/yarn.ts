@@ -201,6 +201,8 @@ export function createYarnProvider(cwd = process.cwd()): Provider {
       log('Running yarn install')
       execFileSync('yarn', ['install'], { cwd, stdio: 'inherit' })
 
+    install() {
+      execFileSync('yarn', ['install'], { cwd, stdio: 'inherit' })
       return Promise.resolve()
     },
   }

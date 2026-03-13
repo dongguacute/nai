@@ -15,6 +15,7 @@ import {
   getPackageVersions,
 } from './npm.ts'
 import { providers } from './providers/index.ts'
+import { getCachedVersion, promptPackages } from './search.ts'
 import { parsePackageSpec, type ParsedPackage } from './utils.ts'
 import type { Provider, ResolvedDep } from './type.ts'
 
@@ -79,16 +80,30 @@ async function run(
   if (names.length > 0) {
     packages = names.map(parsePackageSpec)
   } else {
-    const input = guardCancel(
-      await p.text({
-        message: 'Package names to install (space-separated)',
-        placeholder: 'e.g. react vue@^3.5 lodash',
-        validate: (v) => {
-          if (!v?.trim()) return 'Please enter at least one package name.'
-        },
-      }),
-    )
-    packages = input.trim().split(/\s+/).map(parsePackageSpec)
+    const result = await promptPackages()
+    if (result === null) {
+      p.cancel('Operation cancelled.')
+      process.exit(0)
+    }
+
+    // install all dependencies
+    if (result === 'install') {
+      p.log.step(`Running ${c.bold(provider.name)} install`)
+      try {
+        await provider.install()
+      } catch (error) {
+        p.log.error(error instanceof Error ? error.message : String(error))
+        process.exit(1)
+      }
+      return
+    }
+
+    packages = result
+    if (packages.length === 0) {
+      p.log.error('No packages to install.')
+      p.outro('Exiting')
+      return
+    }
   }
 
   // --- Check catalog support ---
@@ -134,6 +149,15 @@ async function run(
       return { catalogName, version }
     },
     async onFetchVersion(depName) {
+      const infoMsg = (name: string, version: string) =>
+        `${c.cyan(name)}@${c.green(`^${version}`)}`
+
+      const cached = getCachedVersion(depName)
+      if (cached) {
+        p.log.info(infoMsg(depName, cached))
+        return `^${cached}`
+      }
+
       const s = p.spinner()
       s.start(`Resolving ${c.cyan(depName)} from npm...`)
       try {
@@ -145,7 +169,7 @@ async function run(
           )
           return null
         }
-        s.stop(`Resolved ${c.cyan(depName)}@${c.green(`^${meta.version}`)}`)
+        s.stop(infoMsg(depName, meta.version))
         return `^${meta.version}`
       } catch (error) {
         s.stop(`Failed to fetch ${c.cyan(depName)}`)
