@@ -1,3 +1,16 @@
+import { exec } from 'node:child_process'
+import process from 'node:process'
+
+export function openInBrowser(url: string) {
+  const cmd =
+    process.platform === 'darwin'
+      ? 'open'
+      : process.platform === 'win32'
+        ? 'start'
+        : 'xdg-open'
+  exec(`${cmd} ${url}`)
+}
+
 export interface ParsedPackage {
   name: string
   version?: string

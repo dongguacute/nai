@@ -32,6 +32,8 @@ export interface SearchPromptOptions<T = string> {
   autoSelectOnEnter?: boolean
   /** Mutable ref for showing a loading spinner next to the search input. */
   loading?: { value: boolean }
+  /** Called when user presses Ctrl+O on a focused option. */
+  onOpen?: (value: T) => void
 }
 
 /**
@@ -167,6 +169,9 @@ export async function searchPrompt<T = string>(
                 `${styleText('dim', '↑/↓')} navigate`,
                 `${styleText('dim', 'Tab:')} select`,
                 `${styleText('dim', 'Enter:')} confirm`,
+                ...(opts.onOpen
+                  ? [`${styleText('dim', 'Ctrl+O:')} browse`]
+                  : []),
               ]
 
           const bottom = [
@@ -214,11 +219,32 @@ export async function searchPrompt<T = string>(
   }
   process.stdin.prependListener('keypress', spaceHandler)
 
+  // Ctrl+O opens the focused option externally
+  const openHandler = opts.onOpen
+    ? (_ch: unknown, key: { name?: string; ctrl?: boolean }) => {
+        if (key?.name === 'o' && key.ctrl && prompt.focusedValue != null) {
+          const isDirectOnly =
+            prompt.filteredOptions.length === 1 &&
+            String(prompt.filteredOptions[0].value) ===
+              (prompt.userInput ?? '').trim()
+          if (!isDirectOnly) opts.onOpen!(prompt.focusedValue)
+        }
+      }
+    : null
+  if (openHandler) {
+    process.stdin.prependListener('keypress', openHandler)
+  }
+
+  const cleanup = () => {
+    process.stdin.removeListener('keypress', spaceHandler)
+    if (openHandler) {
+      process.stdin.removeListener('keypress', openHandler)
+    }
+  }
+
   // Auto-select focused item on Enter when nothing is selected
   if (opts.autoSelectOnEnter === false) {
-    prompt.once('finalize', () => {
-      process.stdin.removeListener('keypress', spaceHandler)
-    })
+    prompt.once('finalize', cleanup)
   } else {
     const enterHandler = (_ch: unknown, key: { name?: string }) => {
       if (
@@ -232,7 +258,7 @@ export async function searchPrompt<T = string>(
     process.stdin.prependListener('keypress', enterHandler)
     prompt.once('finalize', () => {
       process.stdin.removeListener('keypress', enterHandler)
-      process.stdin.removeListener('keypress', spaceHandler)
+      cleanup()
     })
   }
 

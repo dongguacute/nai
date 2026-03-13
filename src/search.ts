@@ -1,7 +1,7 @@
 import process from 'node:process'
 import c from 'ansis'
 import { searchPrompt, type SearchOption } from './prompts/search.ts'
-import { parsePackageSpec, type ParsedPackage } from './utils.ts'
+import { openInBrowser, parsePackageSpec, type ParsedPackage } from './utils.ts'
 
 export interface NpmSearchResult {
   name: string
@@ -38,6 +38,9 @@ export async function promptPackages(): Promise<ParsedPackage[] | null> {
   const selected = await searchPrompt({
     message: 'Package names to install',
     required: true,
+    onOpen(name) {
+      openInBrowser(`https://www.npmjs.com/package/${encodeURIComponent(name)}`)
+    },
     options() {
       const input = (this.userInput ?? '').trim()
 
