@@ -1,61 +1,11 @@
 import { getLatestVersion } from 'fast-npm-meta'
 
-export interface SearchResult {
-  name: string
-  version: string
-  description: string
-  author?: string
-  date?: string
-  keywords?: string[]
-}
-
 export interface OutdatedInfo {
   name: string
   current: string
   latest: string
   wanted: string
   dependent: string
-}
-
-/**
- * Search npm registry for packages matching a query.
- */
-export async function searchNpm(
-  query: string,
-  options?: { size?: number },
-): Promise<SearchResult[]> {
-  const size = options?.size ?? 20
-  const url = `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(query)}&size=${size}`
-
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`Search failed: ${response.statusText}`)
-  }
-
-  const data = (await response.json()) as {
-    objects: Array<{
-      package: {
-        name: string
-        version: string
-        description?: string
-        author?: { name?: string } | string
-        date?: string
-        keywords?: string[]
-      }
-    }>
-  }
-
-  return data.objects.map((obj) => ({
-    name: obj.package.name,
-    version: obj.package.version,
-    description: obj.package.description ?? '',
-    author:
-      typeof obj.package.author === 'string'
-        ? obj.package.author
-        : obj.package.author?.name,
-    date: obj.package.date,
-    keywords: obj.package.keywords,
-  }))
 }
 
 /**

@@ -30,10 +30,6 @@ nai react --peer
 # Specify a catalog
 nai zod -C prod
 
-# Search npm for packages
-nai search react
-nai s vue router
-
 # Update packages to latest versions
 nai update
 nai up react lodash
@@ -72,21 +68,9 @@ Too many flags. Too many files to touch. Too many things to remember.
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `nai [packages]` | - | Install packages interactively |
-| `nai search [query]` | `nai s` | Search npm for packages |
 | `nai update [packages]` | `nai up` | Update packages to latest versions |
 | `nai remove [packages]` | `nai rm` | Remove packages from dependencies |
 | `nai catalog` | - | Browse and manage catalog versions |
-
-### 🔍 Search
-
-Search npm registry interactively:
-
-```bash
-nai search react
-nai s "ui framework"
-```
-
-Results show package names, versions, and descriptions. Select a package to install it directly.
 
 ### 📦 Update
 

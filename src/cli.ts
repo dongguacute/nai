@@ -13,7 +13,6 @@ import {
 import {
   checkOutdated,
   getPackageVersions,
-  searchNpm,
 } from './npm.ts'
 import { providers } from './providers/index.ts'
 import { parsePackageSpec, type ParsedPackage } from './utils.ts'
@@ -547,69 +546,6 @@ cli
   .alias('rm')
   .option('--clean-catalog', 'Remove unused catalog entries')
   .action(runRemove)
-
-async function runSearch(query: string[]) {
-  p.intro(`${c.yellow`@rizumu/nai`} ${c.dim`v${version}`} ${c.cyan`search`}`)
-
-  const searchQuery = query.length > 0 ? query.join(' ') : guardCancel(
-    await p.text({
-      message: 'Search packages',
-      placeholder: 'e.g. react framework',
-      validate: (v) => {
-        if (!v?.trim()) return 'Please enter a search query.'
-      },
-    }),
-  )
-
-  const s = p.spinner()
-  s.start(`Searching npm for "${c.cyan(searchQuery)}"...`)
-
-  try {
-    const results = await searchNpm(searchQuery, { size: 20 })
-    s.stop(`Found ${c.green(results.length)} packages`)
-
-    if (results.length === 0) {
-      p.log.warn('No packages found.')
-      p.outro('Try a different search term')
-      return
-    }
-
-    const selected = guardCancel(
-      await p.select({
-        message: 'Select a package to install',
-        options: results.map((pkg) => ({
-          value: pkg.name,
-          label: c.cyan(pkg.name) + c.dim(` v${pkg.version}`),
-          hint: pkg.description?.slice(0, 60) || undefined,
-        })),
-      }),
-    )
-
-    // Ask if user wants to install
-    const shouldInstall = guardCancel(
-      await p.confirm({
-        message: `Install ${c.cyan(selected)}?`,
-        initialValue: true,
-      }),
-    )
-
-    if (shouldInstall) {
-      // Run the install flow
-      await run([selected], {})
-    } else {
-      p.outro('Done')
-    }
-  } catch (error) {
-    s.stop('Search failed')
-    p.log.error(error instanceof Error ? error.message : String(error))
-    process.exit(1)
-  }
-}
-
-cli
-  .command('search [...query]', 'Search npm for packages')
-  .alias('s')
-  .action(runSearch)
 
 async function runUpdate(
   names: string[],
