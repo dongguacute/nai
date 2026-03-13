@@ -11,6 +11,7 @@ import {
   resolvePackageVersions,
 } from './core.ts'
 import { providers } from './providers/index.ts'
+import { searchNpmPackages } from './search.ts'
 import { parsePackageSpec, type ParsedPackage } from './utils.ts'
 import type { Provider } from './type.ts'
 
@@ -31,6 +32,119 @@ function guardCancel<T>(value: T | symbol): T {
     process.exit(0)
   }
   return value
+}
+
+/** Interactive package search with dynamic results */
+async function promptPackages(): Promise<ParsedPackage[]> {
+  type Option = { value: string; label: string; hint?: string }
+
+  let searchResults: Option[] = []
+  let lastSearchTerm = ''
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+  let promptRef: any = null
+
+  /**
+   * Auto-select the focused item when Enter is pressed with nothing selected.
+   * Uses prependListener so it fires BEFORE @clack's handler sets this.value.
+   */
+  const autoSelectOnEnter = (_ch: unknown, key: { name?: string }) => {
+    if (
+      key?.name === 'return' &&
+      promptRef &&
+      promptRef.selectedValues.length === 0 &&
+      promptRef.focusedValue != null
+    ) {
+      promptRef.selectedValues = [promptRef.focusedValue]
+    }
+  }
+  process.stdin.prependListener('keypress', autoSelectOnEnter)
+
+  const selected = guardCancel(
+    await p.autocompleteMultiselect({
+      message: 'Package names to install',
+      required: true,
+      options() {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        promptRef = this
+        const input = (this.userInput ?? '').trim()
+
+        if (!input) {
+          lastSearchTerm = ''
+          searchResults = []
+          if (debounceTimer) clearTimeout(debounceTimer)
+          return []
+        }
+
+        const isPackageName = !input.includes(' ')
+        const opts: Option[] = []
+
+        // First option: exact input (only when it looks like a package name)
+        if (isPackageName) {
+          opts.push({
+            value: input,
+            label: c.cyan(input),
+            hint: 'add directly',
+          })
+        }
+
+        // Trigger debounced npm search when input changes
+        if (input !== lastSearchTerm) {
+          lastSearchTerm = input
+          searchResults = []
+          if (debounceTimer) clearTimeout(debounceTimer)
+
+          debounceTimer = setTimeout(async () => {
+            try {
+              const results = await searchNpmPackages(input)
+              if (lastSearchTerm !== input) return
+
+              searchResults = results
+                .filter((pkg) => pkg.name !== input)
+                .map((pkg) => ({
+                  value: pkg.name,
+                  label: `${pkg.name} ${c.blue(`v${pkg.version}`)}`,
+                  hint: pkg.description
+                    ? pkg.description.length > 60
+                      ? `${pkg.description.slice(0, 57)}...`
+                      : pkg.description
+                    : undefined,
+                }))
+
+              // Find exact match to enrich the direct option
+              const exactMatch = results.find((pkg) => pkg.name === input)
+
+              if (promptRef) {
+                const updatedOpts: Option[] = []
+                if (isPackageName) {
+                  updatedOpts.push({
+                    value: input,
+                    label: exactMatch
+                      ? `${c.cyan(input)} ${c.blue(`v${exactMatch.version}`)}`
+                      : c.cyan(input),
+                    hint: 'add directly',
+                  })
+                }
+                updatedOpts.push(...searchResults)
+                promptRef.filteredOptions = updatedOpts
+                process.stdin.emit('keypress', '', { name: '' })
+              }
+            } catch {
+              // Search failed silently — direct option still works
+            }
+          }, 300)
+        }
+
+        opts.push(...searchResults)
+        return opts
+      },
+      filter: () => true,
+    }),
+  )
+
+  process.stdin.removeListener('keypress', autoSelectOnEnter)
+  if (debounceTimer) clearTimeout(debounceTimer)
+  return (selected as string[]).map(parsePackageSpec)
 }
 
 async function run(
@@ -75,16 +189,12 @@ async function run(
   if (names.length > 0) {
     packages = names.map(parsePackageSpec)
   } else {
-    const input = guardCancel(
-      await p.text({
-        message: 'Package names to install (space-separated)',
-        placeholder: 'e.g. react vue@^3.5 lodash',
-        validate: (v) => {
-          if (!v?.trim()) return 'Please enter at least one package name.'
-        },
-      }),
-    )
-    packages = input.trim().split(/\s+/).map(parsePackageSpec)
+    packages = await promptPackages()
+    if (packages.length === 0) {
+      p.log.error('No packages to install.')
+      p.outro('Exiting')
+      return
+    }
   }
 
   // --- Check catalog support ---
