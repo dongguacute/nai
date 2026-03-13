@@ -114,6 +114,7 @@ export async function promptPackages(): Promise<
             }
             updatedOpts.push(...searchResults)
             self.filteredOptions = updatedOpts
+            self.focusedValue = updatedOpts[0]?.value
             process.stdin.emit('keypress', '', { name: '' })
           } catch {
             // Search failed silently — direct option still works
