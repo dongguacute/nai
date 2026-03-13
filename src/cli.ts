@@ -343,6 +343,14 @@ cli
   .option('-C, --catalog <name>', 'Specify catalog name')
   .action(run)
 
+cli
+  .command('add [...names]', 'Install packages with catalog support')
+  .option('-D, --dev', 'Install as dev dependency')
+  .option('--peer', 'Install as peer dependency')
+  .option('--peer-optional', 'Mark peer dependencies as optional')
+  .option('-C, --catalog <name>', 'Specify catalog name')
+  .action(run)
+
 async function runRemove(names: string[], options: { cleanCatalog?: boolean }) {
   p.intro(`${c.yellow`@rizumu/nai`} ${c.dim`v${version}`} ${c.red`remove`}`)
 

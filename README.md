@@ -16,19 +16,20 @@ npm i -g @rizumu/nai
 
 ```bash
 # Interactive mode — prompts for everything
-nai
+nai add
 
-# Pass package names directly
+# Pass package names directly (two ways)
 nai react vue@^3.5 lodash
+nai add react vue@^3.5 lodash
 
 # Install as devDependencies
-nai vitest -D
+nai add vitest -D
 
 # Install as peerDependencies
-nai react --peer
+nai add react --peer
 
 # Specify a catalog
-nai zod -C prod
+nai add zod -C prod
 
 # Update packages to latest versions
 nai update
@@ -67,7 +68,7 @@ Too many flags. Too many files to touch. Too many things to remember.
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `nai [packages]` | - | Install packages interactively |
+| `nai [packages]` | `nai add` | Install packages interactively |
 | `nai update [packages]` | `nai up` | Update packages to latest versions |
 | `nai remove [packages]` | `nai rm` | Remove packages from dependencies |
 | `nai catalog` | - | Browse and manage catalog versions |
