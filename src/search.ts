@@ -1,3 +1,8 @@
+import process from 'node:process'
+import c from 'ansis'
+import { searchPrompt, type SearchOption } from './prompts/search.ts'
+import { parsePackageSpec, type ParsedPackage } from './utils.ts'
+
 export interface NpmSearchResult {
   name: string
   description: string
@@ -21,4 +26,96 @@ export async function searchNpmPackages(
   if (!res.ok) return []
   const data = (await res.json()) as NpmRegistryResponse
   return data.objects.map((o) => o.package)
+}
+
+/** Interactive package search with dynamic npm results. Returns null on cancel. */
+export async function promptPackages(): Promise<ParsedPackage[] | null> {
+  let searchResults: SearchOption[] = []
+  let lastSearchTerm = ''
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  const searchLoading = { value: false }
+
+  const selected = await searchPrompt({
+    message: 'Package names to install',
+    required: true,
+    options() {
+      const input = (this.userInput ?? '').trim()
+
+      if (!input) {
+        lastSearchTerm = ''
+        searchResults = []
+        searchLoading.value = false
+        if (debounceTimer) clearTimeout(debounceTimer)
+        return []
+      }
+
+      const isPackageName = !input.includes(' ')
+      const opts: SearchOption[] = []
+
+      if (isPackageName) {
+        opts.push({
+          value: input,
+          label: c.cyan(input),
+          hint: 'add directly',
+        })
+      }
+
+      if (input !== lastSearchTerm) {
+        lastSearchTerm = input
+        searchResults = []
+        if (debounceTimer) clearTimeout(debounceTimer)
+
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this
+        debounceTimer = setTimeout(async () => {
+          searchLoading.value = true
+          process.stdin.emit('keypress', '', { name: '' })
+          try {
+            const results = await searchNpmPackages(input)
+            if (lastSearchTerm !== input) return
+
+            const exactMatch = results.find((pkg) => pkg.name === input)
+            searchResults = results
+              .filter((pkg) => pkg.name !== input)
+              .map((pkg) => ({
+                value: pkg.name,
+                label: `${pkg.name} ${c.blue(`v${pkg.version}`)}`,
+                hint: pkg.description
+                  ? pkg.description.length > 60
+                    ? `${pkg.description.slice(0, 57)}...`
+                    : pkg.description
+                  : undefined,
+              }))
+
+            const updatedOpts: SearchOption[] = []
+            if (isPackageName) {
+              updatedOpts.push({
+                value: input,
+                label: exactMatch
+                  ? `${c.cyan(input)} ${c.blue(`v${exactMatch.version}`)}`
+                  : c.cyan(input),
+                hint: 'add directly',
+              })
+            }
+            updatedOpts.push(...searchResults)
+            self.filteredOptions = updatedOpts
+            process.stdin.emit('keypress', '', { name: '' })
+          } catch {
+            // Search failed silently — direct option still works
+          } finally {
+            searchLoading.value = false
+          }
+        }, 300)
+      }
+
+      opts.push(...searchResults)
+      return opts
+    },
+    filter: () => true,
+    loading: searchLoading,
+  })
+
+  if (debounceTimer) clearTimeout(debounceTimer)
+  if (typeof selected === 'symbol') return null
+  return (selected as string[]).map(parsePackageSpec)
 }
